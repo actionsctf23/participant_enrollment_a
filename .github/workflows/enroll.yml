@@ -1,0 +1,98 @@
+# This action allows participants to enroll for the challenge, i.e. get their own instance of the challenge.
+
+name: Enrollment bot
+
+on:  
+  issue_comment:
+  
+permissions: 
+  issues: write
+
+env:
+  CTF_ORGANIZATION: 'GPNCTF23-ORG'
+  CTF_TEMPLATE_REPO: 'ctf-challenge-template'
+
+jobs:  
+  enroll-user:
+    # Only run if the comment starts with "/enroll"
+    if: startsWith(github.event.comment.body, '/enroll')
+    runs-on: ubuntu-latest
+   
+    steps:
+      - name: Create repository from template
+        uses: actions/github-script@v6
+        id: create-repo
+        with:
+          github-token: ${{ secrets.REPO_CREATION_TOKEN }}
+          script: |
+            const actor_id = process.env.GITHUB_ACTOR_ID;
+            const actor = process.env.GITHUB_ACTOR;
+
+            const repoName = `${actor_id}_${actor}_ctf-challenge`;
+            const repoUrl = `https://github.com/${process.env.CTF_ORGANIZATION}/${repoName}`;
+
+            // catch any errors that might occur, if the repository already exists for example
+            try {
+              // create a respository from the template repository "CTF_ORGANIZATION/CTF_TEMPLATE_REPO" with the name `github.actor_id`_`github.actor`_ctf-challenge that is private
+              var repo = await github.rest.repos.createUsingTemplate({
+                template_owner: process.env.CTF_ORGANIZATION,
+                template_repo: process.env.CTF_TEMPLATE_REPO,
+                owner: process.env.CTF_ORGANIZATION,
+                name: repoName,
+                private: true
+              });
+            } catch (error) {
+              // if the repository already exists, create a comment on this issue with the link to the repository
+              if (error.message.includes('Name already exists on this account')) {
+                core.setOutput('message', `@${actor} your repository should already exist at: ${repoUrl}.\n If it doesn't, please open a ticket.`);
+                core.warning(`Repository ${repoName} (at: ${repoUrl}) shoud already exist.`)
+              } else {
+                // if the error is something else, create a comment and then log it
+                core.setOutput('message', `@${actor} we could not create a repository for you. Please open a ticket.`);
+                core.error(`Repository ${repoName} (at: ${repoUrl}) could not be created.`)
+                core.setOutput('failed', 'true');
+              }
+              console.log(error);
+              return;
+            }            
+
+            // catch any errors that might occur, create a comment and then log it
+            try {
+              // add the user as collaborator to the repository with only read aka. pull access
+              await github.rest.repos.addCollaborator({
+                owner: process.env.CTF_ORGANIZATION,
+                repo: repoName,
+                username: actor,
+                permission: 'pull'
+              });
+            } catch (error) {
+              core.setOutput('message', `@${actor} we could not add you as a collaborator to the repository. Please open a ticket.`);
+              core.error(`Failed to add participant to repository: ${repoName} (at: ${repoUrl}).`)
+              core.setOutput('failed', 'true');
+              console.log(error);
+              return;
+            }
+            core.setOutput('message', `@${actor} your repository is ready at: ${repoUrl}.`);
+      - name: Post response message
+        uses: actions/github-script@v6
+        env:
+          MESSAGE: ${{ steps.create-repo.outputs.message }}
+          FAILED: ${{ steps.create-repo.outputs.failed }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const message = process.env.MESSAGE;
+            const failed = process.env.FAILED;
+
+            // create a comment on this issue with the given message
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: message
+            });
+            if(failed === 'true') {
+              core.setFailed(message);
+            }
+
+
