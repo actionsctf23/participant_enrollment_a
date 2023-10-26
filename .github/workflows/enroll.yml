@@ -29,7 +29,7 @@ jobs:
             const actor_id = process.env.GITHUB_ACTOR_ID;
             const actor = process.env.GITHUB_ACTOR;
 
-            const repoName = `${actor_id}_${actor}_ctf-challenge`;
+            const repoName = `${actor_id}_${actor}_ctf-challenge-1`;
             const repoUrl = `https://github.com/${process.env.CTF_ORGANIZATION}/${repoName}`;
 
             // catch any errors that might occur, if the repository already exists for example
