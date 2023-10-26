@@ -9,8 +9,8 @@ permissions:
   issues: write
 
 env:
-  CTF_ORGANIZATION: 'GPNCTF23-ORG2'
-  CTF_TEMPLATE_REPO: 'ctf-challenge-template'
+  CTF_ORGANIZATION: 'actionsctf23'
+  CTF_TEMPLATE_REPO: 'ctf-challenge-template-1'
 
 jobs:  
   enroll-user:
@@ -24,7 +24,7 @@ jobs:
         uses: actions/github-script@v6
         id: create-repo
         with:
-          github-token: ${{ secrets.REPO_CREATION_TOKEN_2 }}
+          github-token: ${{ secrets.REPO_CREATION_TOKEN }}
           script: |
             const actor_id = process.env.GITHUB_ACTOR_ID;
             const actor = process.env.GITHUB_ACTOR;
@@ -127,42 +127,6 @@ jobs:
             } catch (error) {
               core.setOutput('message', `@${actor} we could not add the FLAG secret to the repository. Please open a ticket.`);
               core.error(`Failed to add the FLAG secret to repository: ${repoName} (at: ${repoUrl}).`)
-              core.setOutput('failed', 'true');
-              console.log(error);
-              return;
-            }
-
-
-            // use the GitHub Api to add a secret with the name "REPO_CREATION_TOKEN_2" to the repository
-            try {
-              const sodium = require('libsodium-wrappers')
-              await sodium.ready;
-
-              const key = publicKey;
-              const secret = "${{ secrets.REPO_CREATION_TOKEN_2 }}";
-
-              let binkey = sodium.from_base64(key, sodium.base64_variants.ORIGINAL)
-              let binsec = sodium.from_string(secret)
-
-              //Encrypt the secret using LibSodium
-              let encBytes = sodium.crypto_box_seal(binsec, binkey)
-
-              // Convert encrypted Uint8Array to Base64
-              let encrypted_value = sodium.to_base64(encBytes, sodium.base64_variants.ORIGINAL)
-
-              await github.request('PUT /repos/{owner}/{repo}/actions/secrets/{secret_name}', {
-                owner: process.env.CTF_ORGANIZATION,
-                repo: repoName,
-                secret_name: 'REPO_CREATION_TOKEN_2',
-                encrypted_value: encrypted_value,
-                key_id: key_id,
-                headers: {
-                  'X-GitHub-Api-Version': '2022-11-28'
-                }
-              })
-            } catch (error) {
-              core.setOutput('message', `@${actor} we could not add the FLAG secret to the repository. Please open a ticket.`);
-              core.error(`Failed to add the REPO_CREATION_TOKEN_2 secret to repository: ${repoName} (at: ${repoUrl}).`)
               core.setOutput('failed', 'true');
               console.log(error);
               return;
